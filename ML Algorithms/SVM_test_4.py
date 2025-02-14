@@ -58,9 +58,6 @@ plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.show()
 
-# ROC Curve
-fpr, tpr, thresholds = roc_curve(y_test, clf.predict_proba(x_test)[:, 1])
-roc_auc = auc(fpr, tpr)
 
 # ROC Curve
 plt.figure(figsize=(6, 5))
