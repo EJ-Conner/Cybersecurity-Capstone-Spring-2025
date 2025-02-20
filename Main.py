@@ -131,10 +131,27 @@ class KNN(Model):
     def predict_proba(self, X):
         return self.knn.predict_proba(X)
 
+#SVM class
+class SVM(Model):
+    def __init__(self, dataset_path1, dataset_path2):
+        super().__init__(dataset_path1, dataset_path2)
+        from sklearn import svm
+        self.svm = svm.SVC(kernel='rbf', probability=True)
+
+    def train(self):
+        self.svm.fit(self.x_train, self.y_train)
+
+    def predict(self, X):
+        return self.svm.predict(X)
+
+    def predict_proba(self, X):
+        return self.svm.predict_proba(X)
+
 class main():
     #algorithm = GaussianNaiveBayesModel("CTU13_Normal_Traffic.csv", "CTU13_Attack_Traffic.csv")
     #algorithm = RandomForrest('CTU13_Normal_Traffic.csv', 'CTU13_Attack_Traffic.csv')
-    algorithm = KNN('CTU13_Normal_Traffic.csv', 'CTU13_Attack_Traffic.csv')
+    #algorithm = KNN('CTU13_Normal_Traffic.csv', 'CTU13_Attack_Traffic.csv')
+    algorithm = SVM('CTU13_Normal_Traffic.csv', 'CTU13_Attack_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
 
