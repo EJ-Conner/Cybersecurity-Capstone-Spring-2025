@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -67,15 +68,13 @@ class Model(Preprocessing):
         false_negatives = cm[1,0]
         self.plot_confusion_matrix(cm)
 
-        if self.__class__.__name__ != 'LSTM': #Use in ML algorithms
-            #ROC Curve
-            fpr, tpr, thresholds = roc_curve(self.y_test, self.predict_proba(self.x_test)[:, 1])
-            roc_auc = auc(fpr, tpr)
-            self.plot_roc_curve(fpr, tpr, roc_auc)
-        else:
-            fpr, tpr, thresholds = roc_curve(self.y_test, y_pred_prob)
-            roc_auc = auc(fpr, tpr)
-            self.plot_roc_curve(fpr, tpr, roc_auc)
+        #ROC Curve
+        fpr, tpr, thresholds = roc_curve(self.y_test, y_pred_prob)
+        roc_auc = auc(fpr, tpr)
+        self.plot_roc_curve(fpr, tpr, roc_auc)
+
+        #Learning Curve
+        if self.__class__.__name__ == 'LSTM':
             self.plot_learning_curve()
         
         #Printing metrics
@@ -132,9 +131,6 @@ class Model(Preprocessing):
     def predict(self, X):
         pass
 
-    def predict_proba(self, X):
-        pass
-
 #Gaussian Naive Bayes class
 class GaussianNaiveBayesModel(Model):
     def __init__(self, dataset_path):
@@ -147,10 +143,7 @@ class GaussianNaiveBayesModel(Model):
         self.nb.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.nb.predict(X), 0 #The second return value is only used in LSTM
-
-    def predict_proba(self, X):
-        return self.nb.predict_proba(X)
+        return self.nb.predict(X), self.nb.predict_proba(X)[:, 1]
 
 #Random Forrest class
 class RandomForest(Model):
@@ -164,10 +157,7 @@ class RandomForest(Model):
         self.rf.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.rf.predict(X), 0 #The second return value is only used in LSTM
-
-    def predict_proba(self, X):
-        return self.rf.predict_proba(X)
+        return self.rf.predict(X), self.rf.predict_proba(X)[:, 1]
         
 #KNN class
 class KNN(Model):
@@ -181,10 +171,7 @@ class KNN(Model):
         self.knn.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.knn.predict(X), 0 #The second return value is only used in LSTM
-
-    def predict_proba(self, X):
-        return self.knn.predict_proba(X)
+        return self.knn.predict(X), self.knn.predict_proba(X)[:, 1]
 
 #SVM class
 class SVM(Model):
@@ -198,10 +185,7 @@ class SVM(Model):
         self.svm.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.svm.predict(X), 0 #The second return value is only used in LSTM
-
-    def predict_proba(self, X):
-        return self.svm.predict_proba(X)
+        return self.svm.predict(X), self.svm.predict_proba(X)[:, 1]
 
 #LSTM class
 class LSTM(Model):
@@ -227,11 +211,11 @@ class LSTM(Model):
         return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
 
 class main():
-    #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
-    algorithm = RandomForest('CTU13_Combined_Traffic.csv')
+    algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
+    #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
-    #algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    algorithm = LSTM('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
 
