@@ -72,6 +72,8 @@ class Model(Preprocessing):
             fpr, tpr, thresholds = roc_curve(self.y_test, self.predict_proba(self.x_test)[:, 1])
             roc_auc = auc(fpr, tpr)
             self.plot_roc_curve(fpr, tpr, roc_auc)
+        else:
+            self.plot_learning_curve()
         
         #Printing metrics
         print(f'Accuracy: {accuracy:.4f}')
@@ -90,7 +92,7 @@ class Model(Preprocessing):
         plt.ylabel('True')
         plt.show()
 
-     #ROC Curve
+    #ROC Curve
     def plot_roc_curve(self, fpr, tpr, roc_auc):
         plt.figure(figsize = (6, 5))
         plt.plot(fpr, tpr, color = 'darkorange', lw = 2, label = f'ROC curve (area = {roc_auc:.2f})')
@@ -101,6 +103,27 @@ class Model(Preprocessing):
         plt.ylabel('True Positive Rate')
         plt.title('Receiver Operating Characteristic (ROC)')
         plt.legend(loc = 'lower right')
+        plt.show()
+    
+    #Plot Training and Validation Accuracy and Loss
+    def plot_learning_curve(self):
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        plt.plot(self.history.history['accuracy'], label='Train Accuracy')
+        plt.plot(self.history.history['val_accuracy'], label='Validation Accuracy')
+        plt.title('Learning Curve - Accuracy')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(self.history.history['loss'], label='Train Loss')
+        plt.plot(self.history.history['val_loss'], label='Validation Loss')
+        plt.title('Learning Curve - Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.tight_layout()
         plt.show()
 
     def predict(self, X):
@@ -202,10 +225,10 @@ class LSTM(Model):
 
 class main():
     #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
-    algorithm = RandomForest('CTU13_Combined_Traffic.csv')
+    #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
-    #algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    algorithm = LSTM('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
 
