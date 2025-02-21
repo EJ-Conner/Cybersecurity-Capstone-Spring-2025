@@ -53,7 +53,7 @@ class Model(Preprocessing):
 
     def evaluate(self):
         #Predicting on the test set
-        y_pred = self.predict(self.x_test)
+        y_pred, y_pred_prob = self.predict(self.x_test)
 
         #Calculating Accuracy, Precision, Recall, F1-Score
         accuracy = accuracy_score(self.y_test, y_pred)
@@ -73,6 +73,9 @@ class Model(Preprocessing):
             roc_auc = auc(fpr, tpr)
             self.plot_roc_curve(fpr, tpr, roc_auc)
         else:
+            fpr, tpr, thresholds = roc_curve(self.y_test, y_pred_prob)
+            roc_auc = auc(fpr, tpr)
+            self.plot_roc_curve(fpr, tpr, roc_auc)
             self.plot_learning_curve()
         
         #Printing metrics
@@ -144,7 +147,7 @@ class GaussianNaiveBayesModel(Model):
         self.nb.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.nb.predict(X)
+        return self.nb.predict(X), 0 #The second return value is only used in LSTM
 
     def predict_proba(self, X):
         return self.nb.predict_proba(X)
@@ -161,7 +164,7 @@ class RandomForest(Model):
         self.rf.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.rf.predict(X)
+        return self.rf.predict(X), 0 #The second return value is only used in LSTM
 
     def predict_proba(self, X):
         return self.rf.predict_proba(X)
@@ -178,7 +181,7 @@ class KNN(Model):
         self.knn.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.knn.predict(X)
+        return self.knn.predict(X), 0 #The second return value is only used in LSTM
 
     def predict_proba(self, X):
         return self.knn.predict_proba(X)
@@ -195,7 +198,7 @@ class SVM(Model):
         self.svm.fit(self.x_train, self.y_train)
 
     def predict(self, X):
-        return self.svm.predict(X)
+        return self.svm.predict(X), 0 #The second return value is only used in LSTM
 
     def predict_proba(self, X):
         return self.svm.predict_proba(X)
@@ -221,14 +224,14 @@ class LSTM(Model):
 
     def predict(self, X):
         y_pred = self.model.predict(X)
-        return (y_pred > 0.5).astype(int) #Convert probabilities to binary class labels
+        return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
 
 class main():
     #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
-    #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
+    algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
-    algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    #algorithm = LSTM('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
 
