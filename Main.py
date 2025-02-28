@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -186,6 +187,20 @@ class SVM(Model):
     def predict(self, X):
         return self.svm.predict(X), self.svm.predict_proba(X)[:, 1]
 
+#Logistic Regression class
+class logReg(Model):
+    def __init__(self, dataset_path):
+        super().__init__(dataset_path)
+        from sklearn.linear_model import LogisticRegression
+
+        self.lg = LogisticRegression(max_iter = 250) #Increase max iterations to find parameters because of large dataset (100 is the default)
+
+    def train(self):
+        self.lg.fit(self.x_train, self.y_train)
+
+    def predict(self, X):
+        return self.lg.predict(X), self.lg.predict_proba(X)[:, 1]
+
 #LSTM class
 class LSTM(Model):
     def __init__(self, dataset_path):
@@ -210,10 +225,11 @@ class LSTM(Model):
         return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
 
 class main():
-    algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
+    #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
     #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
+    #algorithm = logReg('CTU13_Combined_Traffic.csv')
     algorithm = LSTM('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
