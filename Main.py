@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -37,7 +36,7 @@ class Preprocessing:
         return self.x_train, self.x_test, self.y_train, self.y_test
 
 #Base class for machine learning models
-class Model(Preprocessing):
+class Model_(Preprocessing):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
 
@@ -74,7 +73,7 @@ class Model(Preprocessing):
         self.plot_roc_curve(fpr, tpr, roc_auc)
 
         #Learning Curve
-        if self.__class__.__name__ == 'LSTM':
+        if hasattr(self, 'history') and self.history:
             self.plot_learning_curve()
         
         #Printing metrics
@@ -132,7 +131,7 @@ class Model(Preprocessing):
         pass
 
 #Gaussian Naive Bayes class
-class GaussianNaiveBayesModel(Model):
+class GaussianNaiveBayesModel(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.naive_bayes import GaussianNB
@@ -146,7 +145,7 @@ class GaussianNaiveBayesModel(Model):
         return self.nb.predict(X), self.nb.predict_proba(X)[:, 1]
 
 #Random Forrest class
-class RandomForest(Model):
+class RandomForest(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.ensemble import RandomForestClassifier
@@ -160,7 +159,7 @@ class RandomForest(Model):
         return self.rf.predict(X), self.rf.predict_proba(X)[:, 1]
         
 #KNN class
-class KNN(Model):
+class KNN(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.neighbors import KNeighborsClassifier
@@ -174,7 +173,7 @@ class KNN(Model):
         return self.knn.predict(X), self.knn.predict_proba(X)[:, 1]
 
 #SVM class
-class SVM(Model):
+class SVM(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn import svm
@@ -188,7 +187,7 @@ class SVM(Model):
         return self.svm.predict(X), self.svm.predict_proba(X)[:, 1]
 
 #Logistic Regression class
-class logReg(Model):
+class logReg(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.linear_model import LogisticRegression
@@ -202,7 +201,7 @@ class logReg(Model):
         return self.lg.predict(X), self.lg.predict_proba(X)[:, 1]
 
 #LSTM class
-class LSTM(Model):
+class LSTM(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from tensorflow.keras.models import Sequential
@@ -224,13 +223,62 @@ class LSTM(Model):
         y_pred = self.model.predict(X)
         return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
 
+#Autoencodder class
+class Autoencoder(Model_):
+    def __init__(self, dataset_path):
+        super().__init__(dataset_path)
+        from tensorflow.keras.models import Model
+        from tensorflow.keras.layers import Input, Dense
+        from tensorflow.keras import regularizers
+
+        # Train autoencoder **only on normal traffic** (y_train == 0)
+        self.X_train_normal = self.x_train[self.y_train == 0]
+
+        # Autoencoder Architecture
+        input_dim = self.X_train_normal.shape[1]
+        encoding_dim = 9  # Compressed representation
+        input_layer = Input(shape=(input_dim,))
+        encoder = Dense(encoding_dim, activation="tanh", activity_regularizer=regularizers.l1(10e-5))(input_layer)
+        encoder = Dense(int(encoding_dim / 2), activation="relu")(encoder)
+        decoder = Dense(int(encoding_dim / 2), activation='tanh')(encoder)
+        decoder = Dense(input_dim, activation='relu')(decoder)
+        self.autoencoder = Model(inputs=input_layer, outputs=decoder)
+        self.autoencoder.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
+
+    def train(self):
+        from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+
+        nb_epoch = 20
+        batch_size = 16
+        checkpointer = ModelCheckpoint(filepath = "botnet_model.h5", save_best_only = True, verbose = 0)
+        tensorboard = TensorBoard(log_dir = './logs', write_graph = True, write_images = True)
+
+        self.history = self.autoencoder.fit(
+            self.X_train_normal, self.X_train_normal,
+            epochs = nb_epoch,
+            batch_size = batch_size,
+            shuffle = True,
+            validation_data = (self.x_test, self.x_test),
+            verbose = 1,
+            callbacks = [checkpointer, tensorboard]
+        )
+
+    def predict(self, X):
+        predictions = self.autoencoder.predict(X)
+        mse = np.mean(np.power(X - predictions, 2), axis=1)
+        threshold = np.percentile(mse, 95)
+        y_pred = (mse > threshold).astype(int)
+        y_pred_prob = mse / np.max(mse)
+        return y_pred, y_pred_prob
+
 class main():
     #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
-    #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
+    algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
     #algorithm = logReg('CTU13_Combined_Traffic.csv')
-    algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    #algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    #algorithm = Autoencoder('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
 
