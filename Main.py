@@ -43,8 +43,8 @@ class Model_(Preprocessing):
         #Preprocessing:
         self.x, self.y = self.preprocess_data()
         self.x = self.scale_features()
-        if self.__class__.__name__ == 'LSTM':
-            #Reshape data for LSTM [samples, time steps, features]
+        if self.__class__.__name__ == 'LSTM' or self.__class__.__name__ == 'RNN':
+            #Reshape data for LSTM or RNN [samples, time steps, features]
             self.x = np.reshape(self.x, (self.x.shape[0], 1, self.x.shape[1]))
         self.x_train, self.x_test, self.y_train, self.y_test = self.split_data()
 
@@ -223,6 +223,30 @@ class LSTM(Model_):
         y_pred = self.model.predict(X)
         return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
 
+#RNN class
+class RNN(Model_):
+    def __init__(self, dataset_path):
+        super().__init__(dataset_path)
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import SimpleRNN, Dense, Dropout
+        
+        #Model
+        self.model = Sequential()
+        #RNN layers
+        self.model.add(SimpleRNN(units=50, return_sequences=False, input_shape=(self.x_train.shape[1], self.x_train.shape[2])))
+        self.model.add(Dropout(0.2))
+        self.model.add(Dense(units=50, activation='relu'))
+        self.model.add(Dense(units=1, activation='sigmoid'))
+        self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])  # Use 'categorical_crossentropy' for multi-class
+
+    def train(self):
+        self.history = self.model.fit(self.x_train, self.y_train, epochs=10, batch_size=64, validation_data=(self.x_test, self.y_test), verbose=2)
+
+    def predict(self, X):
+        y_pred = self.model.predict(self.x_test)
+        y_pred_classes = (y_pred > 0.5).astype(int)  # Convert probabilities to binary class labels
+        return y_pred_classes, y_pred
+
 #Autoencodder class
 class Autoencoder(Model_):
     def __init__(self, dataset_path):
@@ -273,11 +297,12 @@ class Autoencoder(Model_):
 
 class main():
     #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
-    algorithm = RandomForest('CTU13_Combined_Traffic.csv')
+    #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
     #algorithm = logReg('CTU13_Combined_Traffic.csv')
     #algorithm = LSTM('CTU13_Combined_Traffic.csv')
+    algorithm = RNN('CTU13_Combined_Traffic.csv')
     #algorithm = Autoencoder('CTU13_Combined_Traffic.csv')
     algorithm.train()
     algorithm.evaluate()
