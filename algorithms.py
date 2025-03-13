@@ -159,7 +159,7 @@ class Model(Preprocessing):
         pass
 
 #Gaussian Naive Bayes class
-class GaussianNaiveBayesModel(Model):
+class GaussianNaiveBayes(Model):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.naive_bayes import GaussianNB
