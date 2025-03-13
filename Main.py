@@ -131,7 +131,7 @@ class Model_(Preprocessing):
         pass
 
 #Gaussian Naive Bayes class
-class GaussianNaiveBayesModel(Model_):
+class GaussianNaiveBayes(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.naive_bayes import GaussianNB
@@ -296,7 +296,7 @@ class Autoencoder(Model_):
         return y_pred, y_pred_prob
 
 class main():
-    #algorithm = GaussianNaiveBayesModel('CTU13_Combined_Traffic.csv')
+    #algorithm = GaussianNaiveBayes('CTU13_Combined_Traffic.csv')
     #algorithm = RandomForest('CTU13_Combined_Traffic.csv')
     #algorithm = KNN('CTU13_Combined_Traffic.csv')
     #algorithm = SVM('CTU13_Combined_Traffic.csv')
