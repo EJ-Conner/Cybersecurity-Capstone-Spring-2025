@@ -87,7 +87,9 @@ class MainWindow(QMainWindow):
             "K-Nearest Neighbors",
             "Support Vector Machine",
             "Logistic Regression",
-            "LSTM"
+            "LSTM",
+            "RNN",
+            "Autoencoder"
         ])
         
         # Dataset upload button
@@ -149,12 +151,14 @@ class MainWindow(QMainWindow):
         
         # Map combo box selection to algorithm class
         algorithm_map = {
-            "Gaussian Naive Bayes": algorithms.GaussianNaiveBayesModel,
+            "Gaussian Naive Bayes": algorithms.GaussianNaiveBayes,
             "Random Forest": algorithms.RandomForest,
             "K-Nearest Neighbors": algorithms.KNN,
             "Support Vector Machine": algorithms.SVM,
             "Logistic Regression": algorithms.logReg,
-            "LSTM": algorithms.LSTM
+            "LSTM": algorithms.LSTM,
+            "RNN": algorithms.RNN,
+            "Autoencoder": algorithms.Autoencoder
         }
         
         selected_algorithm = self.algorithm_combo.currentText()
