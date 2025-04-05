@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -5,8 +6,10 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
 import seaborn as sns
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QVBoxLayout
-from PyQt6.QtCharts import QChart, QChartView
+from PyQt6.QtCharts import QChart, QChartView, QBarSet, QBarSeries, QBarCategoryAxis, QValueAxis, QLineSeries
+from PyQt6.QtGui import QPainter
 
 #Base Preprocessing Class
 class Preprocessing:
@@ -23,8 +26,8 @@ class Preprocessing:
         self.df.iloc[:, -1] = self.label_encoder.fit_transform(self.df.iloc[:, -1])
 
         #Split into features and target variable
-        self.x = self.df.iloc[:, :-1]
-        self.y = self.df.iloc[:, -1]
+        self.x = self.df.iloc[::100, :-1]
+        self.y = self.df.iloc[::100, -1]
         return self.x, self.y
 
     def scale_features(self):
@@ -49,11 +52,26 @@ class Model_(Preprocessing):
             #Reshape data for LSTM [samples, time steps, features]
             self.x = np.reshape(self.x, (self.x.shape[0], 1, self.x.shape[1]))
         self.x_train, self.x_test, self.y_train, self.y_test = self.split_data()
+        self.confusion_chart = None
+        self.roc_chart = None
 
     def train(self):
         pass
 
+        # method to get the algorithm-specific output directory
+    def get_output_dir(self):
+        base_output_dir = "all_outputs"
+        # Generate a folder name like 'RandomForest_output' from the class name
+        algo_name = self.__class__.__name__
+        specific_dir = os.path.join(base_output_dir, f"{algo_name}_output")
+        os.makedirs(specific_dir, exist_ok=True) # Create dir if it doesn't exist
+        return specific_dir
+
     def evaluate(self):
+
+        # Get the specific output directory for algorithm
+        output_dir = self.get_output_dir()
+
         #Predicting on the test set
         y_pred, y_pred_prob = self.predict(self.x_test)
 
@@ -65,92 +83,121 @@ class Model_(Preprocessing):
 
         #Confusion Matrix
         cm = confusion_matrix(self.y_test, y_pred)
-        false_positives = cm[0,1]
-        false_negatives = cm[1,0]
-        self.plot_confusion_matrix(cm)
+        if cm.shape == (2, 2):
+            false_positives = cm[0, 1]
+            false_negatives = cm[1, 0]
+        else: # Handle case where predictions are all one class, get counts safely
+            try:
+                tn, fp, fn, tp = confusion_matrix(self.y_test, y_pred, labels=[0, 1]).ravel()
+                false_positives = fp
+                false_negatives = fn
+            except ValueError: # If only one class exists in y_test *and* y_pred
+                print("Warning: Could not calculate FN/FP due to uniform predictions/labels.")
+                false_positives = "N/A"
+                false_negatives = "N/A"
 
-        #ROC Curve
-        fpr, tpr, thresholds = roc_curve(self.y_test, y_pred_prob)
-        roc_auc = auc(fpr, tpr)
-        self.plot_roc_curve(fpr, tpr, roc_auc)
+        # saving conf matrix 
+        try:
+             plt.figure(figsize=(6, 5))
+             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=['Normal', 'Attack'], yticklabels=['Normal', 'Attack'])
+             plt.ylabel('Actual')
+             plt.xlabel('Predicted')
+             plt.title('Confusion Matrix')
+             cm_path = os.path.join(output_dir, "confusion_matrix.png")
+             plt.savefig(cm_path)
+             plt.close() # Close the figure
+             print(f"Saved confusion matrix to: {cm_path}") # Optional debug print
+        except Exception as e:
+             print(f"Error saving confusion matrix: {e}")
+
+        # --- Save ROC Curve using Matplotlib ---
+        try:
+            fpr, tpr, thresholds = roc_curve(self.y_test, y_pred_prob)
+            roc_auc = auc(fpr, tpr)
+            plt.figure(figsize=(6, 5))
+            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:0.2f})')
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title('Receiver Operating Characteristic (ROC)')
+            plt.legend(loc="lower right")
+            roc_path = os.path.join(output_dir, "roc_curve.png")
+            plt.savefig(roc_path)
+            plt.close() # Close the figure
+            print(f"Saved ROC curve to: {roc_path}") # Optional debug print
+        except Exception as e:
+            print(f"Error saving ROC curve: {e}")
+                
+        
+        metrics_contents = (f'Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nRecall: {recall:.4f}\nF1-Score: {f1:.4f}\nFlase negatives: {false_negatives}\nFalse Positives: {false_positives}')
+        try:
+            metrics_path = os.path.join(output_dir, "metrics.txt")
+            os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+            with open(metrics_path, 'w') as file:
+                file.write(metrics_contents)
+                print(f'File was successfully saved to {metrics_path}')
+        except Exception as e:
+            print(f"Error saving metrics.txt: {e}")
+        
 
         #Learning Curve
-        if self.__class__.__name__ == 'LSTM':
-            self.plot_learning_curve()
+        #if self.__class__.__name__ in ['LSTM', 'RNN', 'Autoencoder'] and hasattr(self, 'history'):
+        #    self.plot_learning_curve()
         
         #Printing metrics
-        print(f'Accuracy: {accuracy:.4f}')
-        print(f'Precision: {precision:.4f}')
-        print(f'Recall: {recall:.4f}')
-        print(f'F1-Score: {f1:.4f}')
-        print(f'Flase negatives: {false_negatives}')
-        print(f'False Positives: {false_positives}')
+ 
+        
+        return {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'false_negatives': false_negatives,
+            'false_positives': false_positives
+        }
+        
 
-    #Confusion Matrix heatmap
-    def plot_confusion_matrix(self, cm):
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Normal', 'Attack'], yticklabels=['Normal', 'Attack'])
-        plt.title('Confusion Matrix')
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        plt.show()
+        def _save_learning_curves(self, history):
+            # Saves accuracy and loss learning curves using Matplotlib to the algorithm's specific folder.
+            output_dir = self.get_output_dir() # Get the correct directory
 
-    #ROC Curve
-    def plot_roc_curve(self, fpr, tpr, roc_auc):
-        dialog = QDialog()
-        dialog.setWindowTitle("ROC Curve")
-        dialog.resize(600, 400)
-        layout = QVBoxLayout(dialog)
+            # Plot and save Accuracy curve
+            if hasattr(history, 'history') and 'accuracy' in history.history and 'val_accuracy' in history.history:
+                try:
+                    plt.figure()
+                    plt.plot(history.history['accuracy'], label='Train Accuracy')
+                    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+                    plt.title('Model Accuracy')
+                    plt.ylabel('Accuracy')
+                    plt.xlabel('Epoch')
+                    plt.legend()
+                    acc_path = os.path.join(output_dir, "learning_curve_accuracy.png")
+                    plt.savefig(acc_path)
+                    plt.close()
+                    print(f"Saved accuracy curve to: {acc_path}") # Optional debug print
+                except Exception as e:
+                    print(f"Error saving accuracy curve: {e}")
 
-        # Use QLineSeries for ROC curve
-        from PyQt6.QtCharts import QLineSeries
-        series = QLineSeries()
-        for f, t in zip(fpr, tpr):
-            series.append(f, t)
 
-        chart = QChart()
-        chart.addSeries(series)
-        chart.setTitle(f"ROC Curve (AUC = {roc_auc:.2f})")
-        chart.createDefaultAxes()
-        chart.axes()[0].setTitleText("False Positive Rate")
-        chart.axes()[1].setTitleText("True Positive Rate")
-
-        chart_view = QChartView(chart)
-        layout.addWidget(chart_view)
-        dialog.setLayout(layout)
-        dialog.exec()
-    
-    #Plot Training and Validation Accuracy and Loss
-    def plot_learning_curve(self):
-       dialog = QDialog()
-       dialog.setWindowTitle("Learning Curve")
-       dialog.resize(800, 400)
-       layout = QVBoxLayout(dialog)
-
-       from PyQt6.QtCharts import QLineSeries
-       # Accuracy plot
-       acc_series = QLineSeries()
-       val_acc_series = QLineSeries()
-       for i, (acc, val_acc) in enumerate(zip(self.history.history['accuracy'], self.history.history['val_accuracy'])):
-           acc_series.append(i, acc)
-           val_acc_series.append(i, val_acc)
-
-       chart = QChart()
-       chart.addSeries(acc_series)
-       chart.addSeries(val_acc_series)
-       chart.setTitle("Learning Curve - Accuracy")
-       chart.createDefaultAxes()
-       chart.axes()[0].setTitleText("Epochs") 
-       chart.axes()[1].setTitleText("Accuracy")
-       chart.legend().setVisible(True)
-       chart.legend().markers(acc_series)[0].setLabel("Train Accuracy")
-       chart.legend().markers(val_acc_series)[0].setLabel("Validation Accuracy")
-
-       chart_view = QChartView(chart)
-       layout.addWidget(chart_view)
-       dialog.setLayout(layout)
-       dialog.exec()
-
+            # Plot and save Loss curve
+            if hasattr(history, 'history') and 'loss' in history.history and 'val_loss' in history.history:
+                try:
+                    plt.figure()
+                    plt.plot(history.history['loss'], label='Train Loss')
+                    plt.plot(history.history['val_loss'], label='Validation Loss')
+                    plt.title('Model Loss')
+                    plt.ylabel('Loss')
+                    plt.xlabel('Epoch')
+                    plt.legend()
+                    loss_path = os.path.join(output_dir, "learning_curve_loss.png")
+                    plt.savefig(loss_path)
+                    plt.close()
+                    print(f"Saved loss curve to: {loss_path}") # Optional debug print
+                except Exception as e:
+                    print(f"Error saving loss curve: {e}")
+                
     def predict(self, X):
         pass
 
@@ -183,7 +230,7 @@ class RandomForest(Model_):
         return self.rf.predict(X), self.rf.predict_proba(X)[:, 1]
         
 #KNN class
-class KNN(Model_):
+class KNearestNeighbors(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.neighbors import KNeighborsClassifier
@@ -197,7 +244,7 @@ class KNN(Model_):
         return self.knn.predict(X), self.knn.predict_proba(X)[:, 1]
 
 #SVM class
-class SVM(Model_):
+class SupportVectorMachine(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn import svm
@@ -211,7 +258,7 @@ class SVM(Model_):
         return self.svm.predict(X), self.svm.predict_proba(X)[:, 1]
 
 #Logistic Regression class
-class logReg(Model_):
+class LogisticRegression(Model_):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
         from sklearn.linear_model import LogisticRegression
@@ -242,6 +289,7 @@ class LSTM(Model_):
 
     def train(self):
         self.history = self.model.fit(self.x_train, self.y_train, epochs=10, batch_size=64, validation_data=(self.x_test, self.y_test), verbose=2)
+        self._save_learning_curves(self.history)
 
     def predict(self, X):
         y_pred = self.model.predict(X)
@@ -265,6 +313,7 @@ class RNN(Model_):
 
     def train(self):
         self.history = self.model.fit(self.x_train, self.y_train, epochs=10, batch_size=64, validation_data=(self.x_test, self.y_test), verbose=2)
+        self._save_learning_curves(self.history)
 
     def predict(self, X):
         y_pred = self.model.predict(self.x_test)
@@ -296,6 +345,10 @@ class Autoencoder(Model_):
     def train(self):
         from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
+        output_dir = self.get_output_dir() # Get specific dir for checkpoint path
+        logs_dir = os.path.join(output_dir, 'logs') # Place logs inside algorithm output dir
+        os.makedirs(logs_dir, exist_ok=True)
+
         nb_epoch = 20
         batch_size = 16
         checkpointer = ModelCheckpoint(filepath = "botnet_model.h5", save_best_only = True, verbose = 0)
@@ -310,6 +363,7 @@ class Autoencoder(Model_):
             verbose = 1,
             callbacks = [checkpointer, tensorboard]
         )
+        self._save_learning_curves(self.history)
 
     def predict(self, X):
         predictions = self.autoencoder.predict(X)
