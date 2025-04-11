@@ -75,7 +75,7 @@ class Model_(Preprocessing):
         self.plot_roc_curve(fpr, tpr, roc_auc)
 
         #Learning Curve
-        if self.__class__.__name__ == 'LSTM':
+        if self.__class__.__name__ in ['LSTM', 'RNN', 'Autoencoder']:
             self.plot_learning_curve()
         
         #Printing metrics
