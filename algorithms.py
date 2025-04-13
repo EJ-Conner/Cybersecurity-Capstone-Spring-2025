@@ -7,7 +7,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 #Base Preprocessing Class
 class Preprocessing:
     def __init__(self, dataset_path):
@@ -41,7 +40,7 @@ class Preprocessing:
 class Model_(Preprocessing):
     def __init__(self, dataset_path):
         super().__init__(dataset_path)
-        print(f"Model_ __init__ called for {self.__class__.__name__}") # Add this line
+        print(f"Model_ __init__ called for {self.__class__.__name__}") 
 
         #Preprocessing:
         self.x, self.y = self.preprocess_data()
@@ -131,7 +130,7 @@ class Model_(Preprocessing):
             print(f"Error saving ROC curve: {e}")
                 
         
-        metrics_contents = (f'Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nRecall: {recall:.4f}\nF1-Score: {f1:.4f}\nFalse negatives: {false_negatives}\nFalse Positives: {false_positives}')
+        metrics_contents = (f'Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nRecall: {recall:.4f}\nF1-Score: {f1:.4f}\nFlase negatives: {false_negatives}\nFalse Positives: {false_positives}')
         try:
             metrics_path = os.path.join(output_dir, "metrics.txt")
             os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
@@ -142,15 +141,6 @@ class Model_(Preprocessing):
             print(f"Error saving metrics.txt: {e}")
         
 
-        
-        return {
-            'accuracy': accuracy,
-            'precision': precision,
-            'recall': recall,
-            'f1': f1,
-            'false_negatives': false_negatives,
-            'false_positives': false_positives
-        }
         
 
     def _save_learning_curves(self, history):
@@ -288,14 +278,98 @@ class LSTM(Model_):
         self.model.add(keras.layers.Dense(units = 50, activation = 'relu'))
         self.model.add(keras.layers.Dense(units = 1, activation = 'sigmoid'))  #'softmax' for multi-class classification
         self.model.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics = ['accuracy'])
+        self.model.summary()
 
     def train(self):
-        self.history = self.model.fit(self.x_train, self.y_train, epochs=10, batch_size=64, validation_data=(self.x_test, self.y_test), verbose=2)
+
+        import tensorflow as tf
+
+        output_dir = self.get_output_dir()
+        # Using '.weights.h5'
+        # weights checkpoint
+        checkpoint_filepath = os.path.join(output_dir, 'lstm_best.weights.h5')
+        model_save_filepath = os.path.join(output_dir, 'lstm_entire_model.h5')
+
+        # --- Create the ModelCheckpoint callback ---
+        # Monitor 'val_loss' to save the model when validation loss is lowest
+        # save_weights_only=True saves only the weights
+        # save_best_only=True ensures only the best model (lowest val_loss) is kept
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=True,
+            monitor='val_loss', # Or 'val_accuracy' if preferred
+            mode='min', # 'min' for loss, 'max' for accuracy
+            save_best_only=True,
+            verbose=1 # Print messages when weights are saved
+        )
+
+        nb_epoch = 10
+        batch_size = 64
+
+        print(f"\n--- Starting LSTM Training (saving best weights to {checkpoint_filepath}) ---")
+        # --- Train the model, passing the callback ---
+        self.history = self.model.fit(
+            self.x_train,
+            self.y_train,
+            epochs=nb_epoch, 
+            batch_size=batch_size, 
+            validation_data=(self.x_test, self.y_test),
+            verbose=2, 
+            callbacks=[cp_callback] # Pass the checkpoint callback here
+        )
+        print("--- LSTM Training Finished ---")
+
+        # --- Save the entire model ---
+        try:
+            self.model.save(model_save_filepath)
+            print(f"Entire LSTM model saved to: {model_save_filepath}")
+        except Exception as e:
+            print(f"Error saving the entire LSTM model: {e}")
+        
+         # --- Save learning curves ---
         self._save_learning_curves(self.history)
 
+    
+
+
     def predict(self, X):
-        y_pred = self.model.predict(X)
-        return (y_pred > 0.5).astype(int), y_pred #Convert probabilities to binary class labels
+        # Ensure the input X has the correct shape for LSTM: [samples, time_steps, features]
+        if len(X.shape) == 2: # If input is 2D [samples, features]
+             # Reshape assuming 1 time step, like the training data
+             X = np.reshape(X, (X.shape[0], 1, X.shape[1]))
+        elif len(X.shape) != 3 or X.shape[1] != self.x_train.shape[1]:
+             # Handle potential shape mismatch if reshaping isn't the right fix
+             print(f"Warning: Input shape for LSTM predict {X.shape} might be incorrect. Expected shape like (samples, {self.x_train.shape[1]}, features).")
+             # You might need more robust error handling or shape adjustment here
+
+        y_pred_prob = self.model.predict(X)
+        # Convert probabilities to binary class labels (0 or 1) based on a 0.5 threshold
+        y_pred_classes = (y_pred_prob > 0.5).astype(int)
+        # Return both the binary prediction and the probability
+        return y_pred_classes, y_pred_prob.flatten() # flatten probability for ROC/AUC
+
+
+    # Function if you want to save weights instead of model, would need to implement in GUI
+    # Weights to your new model
+    '''
+    def load_trained_weights(self):
+         # --- Loads the previously saved best weights into the model ---
+        output_dir = self.get_output_dir()
+        checkpoint_filepath = os.path.join(output_dir, 'lstm_best_weights.weights.h5')
+
+        if os.path.exists(checkpoint_filepath):
+            try:
+                self.model.load_weights(checkpoint_filepath)
+                print(f"Successfully loaded weights from {checkpoint_filepath}")
+                return True
+            except Exception as e:
+                print(f"Error loading weights from {checkpoint_filepath}: {e}")
+                return False
+        else:
+            print(f"Error: Weights file not found at {checkpoint_filepath}. Train the model first.")
+            return False
+    '''
+
 
 #RNN class
 class RNN(Model_):
@@ -319,15 +393,71 @@ class RNN(Model_):
         self.model.add(keras.layers.Dense(units=50, activation='relu'))
         self.model.add(keras.layers.Dense(units=1, activation='sigmoid'))
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])  #Use 'categorical_crossentropy' for multi-class
+        self.model.summary()
 
     def train(self):
-        self.history = self.model.fit(self.x_train, self.y_train, epochs=10, batch_size=64, validation_data=(self.x_test, self.y_test), verbose=2)
+        import tensorflow as tf
+        output_dir = self.get_output_dir()
+        checkpoint_filepath = os.path.join(output_dir, 'rnn_best_weights.weights.h5')
+        model_save_filepath = os.path.join(output_dir, 'rnn_entire_model.h5')
+
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=True,
+            monitor='val_loss',
+            mode='min',
+            save_best_only=True,
+            verbose=1
+        )
+
+        nb_epoch = 10
+        batch_size = 64
+
+        print(f"\n--- Starting RNN Training (saving best weights to {checkpoint_filepath}) ---")
+        self.history = self.model.fit(
+            self.x_train,
+            self.y_train,
+            epochs=nb_epoch,
+            batch_size=batch_size,
+            validation_data=(self.x_test, self.y_test),
+            verbose=2,
+            callbacks=[cp_callback]
+        )
+        print("--- RNN Training Finished ---")
+
+        try:
+            self.model.save(model_save_filepath)
+            print(f"Entire RNN model saved to: {model_save_filepath}")
+        except Exception as e:
+            print(f"Error saving the entire RNN model: {e}")
+
         self._save_learning_curves(self.history)
 
+     
     def predict(self, X):
-        y_pred = self.model.predict(self.x_test)
+        #y_pred = self.model.predict(self.x_test)
+        y_pred = self.model.predict(X)
         y_pred_classes = (y_pred > 0.5).astype(int)  # Convert probabilities to binary class labels
         return y_pred_classes, y_pred
+
+    '''
+    def load_trained_weights(self):
+        """Loads the previously saved best weights into the model."""
+        output_dir = self.get_output_dir()
+        checkpoint_filepath = os.path.join(output_dir, 'rnn_best_weights.weights.h5')
+
+        if os.path.exists(checkpoint_filepath):
+            try:
+                self.model.load_weights(checkpoint_filepath)
+                print(f"Successfully loaded weights from {checkpoint_filepath}")
+                return True
+            except Exception as e:
+                print(f"Error loading weights from {checkpoint_filepath}: {e}")
+                return False
+        else:
+            print(f"Error: Weights file not found at {checkpoint_filepath}. Train the model first.")
+            return False
+    '''
 
 #Autoencodder class
 class Autoencoder(Model_):
@@ -343,21 +473,11 @@ class Autoencoder(Model_):
         # Conda Environment
         import tensorflow as tf 
         from tensorflow import keras
-        from tensorflow.keras.regularizers import l1
+        #from tensorflow.keras.regularizers import l1
 
         # Train autoencoder **only on normal traffic** (y_train == 0)
         self.X_train_normal = self.x_train[self.y_train == 0]
 
-        # Autoencoder Architecture
-        input_dim = self.X_train_normal.shape[1]
-        encoding_dim = 9  # Compressed representation
-        input_layer = keras.layers.Input(shape=(input_dim,))
-        encoder = keras.layers.Dense(encoding_dim, activation="tanh", activity_regularizer=l1(10e-5))(input_layer)
-        encoder = keras.layers.Dense(int(encoding_dim / 2), activation="relu")(encoder)
-        decoder = keras.layers.Dense(int(encoding_dim / 2), activation='tanh')(encoder)
-        decoder = keras.layers.Dense(input_dim, activation='relu')(decoder)
-        self.autoencoder = keras.models.Model(inputs=input_layer, outputs=decoder)
-        self.autoencoder.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
 
     def train(self):
 
@@ -366,17 +486,39 @@ class Autoencoder(Model_):
         #from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
         
         # Conda Environment
+        import tensorflow as tf
         from tensorflow import keras
+        
 
-        output_dir = self.get_output_dir() #Get specific dir for checkpoint path
-        logs_dir = os.path.join(output_dir, 'logs') #Place logs inside algorithm output dir
-        os.makedirs(logs_dir, exist_ok=True)
+        # Autoencoder Architecture
+        input_dim = self.X_train_normal.shape[1]
+        encoding_dim = 9  # Compressed representation
+        input_layer = keras.layers.Input(shape=(input_dim,))
+        encoder = keras.layers.Dense(encoding_dim, activation="tanh", activity_regularizer=keras.regularizers.l1(10e-5))(input_layer)
+        encoder = keras.layers.Dense(int(encoding_dim / 2), activation="relu")(encoder)
+        decoder = keras.layers.Dense(int(encoding_dim / 2), activation='tanh')(encoder)
+        decoder = keras.layers.Dense(input_dim, activation='relu')(decoder)
+        self.autoencoder = keras.models.Model(inputs=input_layer, outputs=decoder)
+        self.autoencoder.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
+        self.autoencoder.summary()
+
+        output_dir = self.get_output_dir() # Get specific dir for checkpoint and logs path
+        checkpoint_filepath = os.path.join(output_dir, 'autoencoder_best_weights.weights.h5')
+        model_save_filepath = os.path.join(output_dir, 'autoencoder_entire_model.h5')
+
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=True,
+            monitor='val_loss',
+            mode='min',
+            save_best_only=True,
+            verbose=1
+        )
 
         nb_epoch = 20
         batch_size = 16
-        checkpointer = keras.callbacks.ModelCheckpoint(filepath = "botnet_model.h5", save_best_only = True, verbose = 0)
-        tensorboard = keras.callbacks.TensorBoard(log_dir = './logs', write_graph = True, write_images = True)
 
+        print(f"\n--- Starting Autoencoder Training (saving best weights to {checkpoint_filepath}) ---")
         self.history = self.autoencoder.fit(
             self.X_train_normal, self.X_train_normal,
             epochs = nb_epoch,
@@ -384,14 +526,53 @@ class Autoencoder(Model_):
             shuffle = True,
             validation_data = (self.x_test, self.x_test),
             verbose = 1,
-            callbacks = [checkpointer, tensorboard]
+            callbacks = [cp_callback]
         )
+        print("--- Autoencoder Training Finished ---")
+
+        
+        # --- Save the entire model ---
+        try:
+            self.autoencoder.save(model_save_filepath)
+            print(f"Entire Autoencoder model saved to: {model_save_filepath}")
+        except Exception as e:
+            print(f"Error saving the entire Autoencoder model: {e}")
+        
         self._save_learning_curves(self.history)
+
+        # 1. Calculate MSE on the normal training data (or a normal validation set)
+        normal_predictions = self.autoencoder.predict(self.X_train_normal)
+        normal_mse = np.mean(np.power(self.X_train_normal - normal_predictions, 2), axis=1)
+
+        # 2. Set threshold (e.g., 99th percentile of normal errors)
+        self.threshold = np.percentile(normal_mse, 99)
+        print(f"Calculated threshold based on normal data: {self.threshold}")
+
+        #return model_save_filepath
 
     def predict(self, X):
         predictions = self.autoencoder.predict(X)
         mse = np.mean(np.power(X - predictions, 2), axis=1)
-        threshold = np.percentile(mse, 95)
-        y_pred = (mse > threshold).astype(int)
-        y_pred_prob = mse / np.max(mse)
+        #threshold = np.percentile(mse, 95)
+        y_pred = (mse > self.threshold).astype(int)
+        y_pred_prob = mse # / np.max(mse)
         return y_pred, y_pred_prob
+
+    '''
+    def load_trained_weights(self):
+        # --- Loads the previously saved best weights into the model ---
+        output_dir = self.get_output_dir()
+        checkpoint_filepath = os.path.join(output_dir, 'autoencoder_best_weights.weights.h5')
+
+        if os.path.exists(checkpoint_filepath):
+            try:
+                self.autoencoder.load_weights(checkpoint_filepath)
+                print(f"Successfully loaded weights from {checkpoint_filepath}")
+                return True
+            except Exception as e:
+                print(f"Error loading weights from {checkpoint_filepath}: {e}")
+                return False
+        else:
+            print(f"Error: Weights file not found at {checkpoint_filepath}. Train the model first.")
+            return False
+    '''
