@@ -26,7 +26,7 @@ except Exception as e:
 
 def add_plot_to_layout(plot_path, title, layout_to_add_to, scale_width=600, scale_height=450):
     # ---- Adds a plot image to the specified layout if it exists ----
-    plot_widget = QWidget() #Container for title + image
+    plot_widget = QWidget() # Container for title + image
     plot_layout = QVBoxLayout(plot_widget)
     plot_layout.setContentsMargins(0, 5, 0, 5) # margins
 
@@ -36,7 +36,7 @@ def add_plot_to_layout(plot_path, title, layout_to_add_to, scale_width=600, scal
     if plot_path and os.path.exists(plot_path):
         plot_label = QLabel()
         pixmap = QPixmap(plot_path)
-        #Scale pixmap smoothly
+        # Scale pixmap smoothly
         scaled_pixmap = pixmap.scaled(scale_width, scale_height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         plot_label.setPixmap(scaled_pixmap)
         plot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -61,7 +61,7 @@ class ResultsWindow(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
 
-        #Store passed info from main window
+        # Store passed info from main window
         self.selected_algorithm = selected_algorithm
         self.algorithm_output_dir = algorithm_output_dir
         self.is_error = is_error 
@@ -69,12 +69,12 @@ class ResultsWindow(QDialog):
         # --- Scrollable Window ---
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #ffffff; }") #White background
+        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #ffffff; }") # White background
         scroll_area_widget = QWidget()
         scroll_area_widget.setStyleSheet("background-color: #ffffff;")
-        self.scroll_layout = QVBoxLayout(scroll_area_widget)  #Layout for scrollable content
-        self.scroll_layout.setSpacing(20)                     #Create spacing between sections
-        self.scroll_layout.setContentsMargins(10, 10, 10, 10) #Margins inside scroll area
+        self.scroll_layout = QVBoxLayout(scroll_area_widget)  # Layout for scrollable content
+        self.scroll_layout.setSpacing(20)                     # Create spacing between sections
+        self.scroll_layout.setContentsMargins(10, 10, 10, 10) # Margins inside scroll area
         scroll_area.setWidget(scroll_area_widget)
         layout.addWidget(scroll_area, 1)                      # Add scroll area to the main dialog layout
 
@@ -87,9 +87,9 @@ class ResultsWindow(QDialog):
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         self.results_text.setText(output_text)
-        #Flexible height
+        # Flexible height
         self.results_text.setMinimumHeight(150)
-        #self.results_text.setMaximumHeight(300) #Limit max initial height
+        # self.results_text.setMaximumHeight(300) #Limit max initial height
         self.results_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         self.scroll_layout.addWidget(self.results_text)
 
@@ -102,11 +102,11 @@ class ResultsWindow(QDialog):
             metrics_display = QTextEdit()
             metrics_display.setReadOnly(True)
             metrics_display.setText(metrics_text)
-            metrics_display.setFixedHeight(120) #Fixed height for metrics
+            metrics_display.setFixedHeight(120) # Fixed height for metrics
             metrics_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self.scroll_layout.addWidget(metrics_display)
         elif not self.is_error:
-             #Still add a label if metrics are missing in a normal run, but notify user
+             # Still add a label if metrics are missing in a normal run, but notify user
              missing_metrics = QLabel("<i>Metrics file (metrics.txt) not found or not generated.</i>")
              missing_metrics.setAlignment(Qt.AlignmentFlag.AlignCenter)
              self.scroll_layout.addWidget(missing_metrics)
@@ -206,7 +206,6 @@ class MainWindow(QMainWindow):
         # --- Window setup ---
         self.setWindowTitle("Botnet Traffic Analysis")
         self.setMinimumSize(500, 550) # Set minimum size
-        #self.setMaximumSize(650, 700) # Set maximum size
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f0f0f0; /* Light grey background */
