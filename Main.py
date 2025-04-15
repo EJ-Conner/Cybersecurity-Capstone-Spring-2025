@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
                 border-bottom-right-radius: 3px;
             }
 
-            #added this so the drop down menu wasnt all greyed out on Josh's Laptop.
+            /* So the drop down menu isn't gray on certain systems leaving options hard to read. */
             QComboBox QAbstractItemView {
                 background-color: white;
                 color: black;
