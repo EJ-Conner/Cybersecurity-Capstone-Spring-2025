@@ -130,7 +130,7 @@ class Model_(Preprocessing):
             print(f"Error saving ROC curve: {e}")
                 
         
-        metrics_contents = (f'Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nRecall: {recall:.4f}\nF1-Score: {f1:.4f}\nFlase negatives: {false_negatives}\nFalse Positives: {false_positives}')
+        metrics_contents = (f'Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nRecall: {recall:.4f}\nF1-Score: {f1:.4f}\nFalse negatives: {false_negatives}\nFalse Positives: {false_positives}')
         try:
             metrics_path = os.path.join(output_dir, "metrics.txt")
             os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
